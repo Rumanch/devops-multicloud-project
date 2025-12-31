@@ -8,21 +8,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # --- PHASE 2: AUTOMATED TESTING ---
       - name: Unit Test & Validation
         run: |
           echo "Executing automated content validation..."
-          # Validates that the app contains the required project string
           grep -q "DevOps Project" app/index.html
           echo "Test Suite: 14/14 Tests Passed"
-          echo "Code Coverage: 88%"
-          echo "Testing Environment: Production-Ready"
 
-      # --- PHASE 2: CONTAINER BUILDING ---
       - name: Build Docker Image
         run: docker build -t rumanch/devops-app:latest ./app
 
-      # --- PHASE 2: SECURITY SCANNING ---
       - name: Run Trivy Scan
         uses: aquasecurity/trivy-action@master
         with:
@@ -30,7 +24,6 @@ jobs:
           format: 'table'
           exit-code: '0'
 
-      # --- PHASE 2: ARTIFACT MANAGEMENT ---
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
@@ -40,7 +33,7 @@ jobs:
       - name: Push Secure Image
         run: docker push rumanch/devops-app:latest
 
-      # --- PHASE 3: MULTI-CLOUD DEPLOYMENT (AZURE) ---
+      # --- PHASE 3: DEPLOY TO AZURE (WITH RESOURCE QUOTA FIX) ---
       - name: Azure Login
         uses: azure/login@v1
         with:
@@ -48,12 +41,37 @@ jobs:
 
       - name: Deploy to Azure AKS
         run: |
-          # Azure identified: devops-rg and devops-aks
           az aks get-credentials --resource-group devops-rg --name devops-aks --overwrite-existing
-          kubectl create deployment devops-app --image=rumanch/devops-app:latest --dry-run=client -o yaml | kubectl apply -f -
+          # We use a heredoc to define a proper manifest with CPU/Memory resources
+          cat <<EOF | kubectl apply -f -
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: devops-app
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: devops-app
+            template:
+              metadata:
+                labels:
+                  app: devops-app
+              spec:
+                containers:
+                - name: devops-app
+                  image: rumanch/devops-app:latest
+                  resources:
+                    requests:
+                      cpu: "100m"
+                      memory: "128Mi"
+                    limits:
+                      cpu: "250m"
+                      memory: "256Mi"
+          EOF
           kubectl rollout status deployment/devops-app
 
-      # --- PHASE 3: MULTI-CLOUD DEPLOYMENT (AWS) ---
+      # --- PHASE 3: DEPLOY TO AWS (WITH RESOURCE DEFINITIONS) ---
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -63,7 +81,31 @@ jobs:
 
       - name: Deploy to AWS EKS
         run: |
-          # AWS identified: devops-eks
           aws eks update-kubeconfig --region us-east-1 --name devops-eks
-          kubectl create deployment devops-app --image=rumanch/devops-app:latest --dry-run=client -o yaml | kubectl apply -f -
+          cat <<EOF | kubectl apply -f -
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: devops-app
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: devops-app
+            template:
+              metadata:
+                labels:
+                  app: devops-app
+              spec:
+                containers:
+                - name: devops-app
+                  image: rumanch/devops-app:latest
+                  resources:
+                    requests:
+                      cpu: "100m"
+                      memory: "128Mi"
+                    limits:
+                      cpu: "250m"
+                      memory: "256Mi"
+          EOF
           kubectl rollout status deployment/devops-app
