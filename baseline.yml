@@ -1,0 +1,53 @@
+---
+- name: Phase 1 Baseline - Multi-Cloud Security & Monitoring
+  hosts: localhost
+  connection: local
+
+  tasks:
+    # 1. Monitoring Requirement: Deploying the Agent (Node Exporter)
+    - name: Create Monitoring Namespace
+      kubernetes.core.k8s:
+        name: monitoring
+        kind: Namespace
+        state: present
+
+    - name: Deploy Node Exporter DaemonSet
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: DaemonSet
+          metadata:
+            name: node-exporter
+            namespace: monitoring
+          spec:
+            selector:
+              matchLabels:
+                app: node-exporter
+            template:
+              metadata:
+                labels:
+                  app: node-exporter
+              spec:
+                containers:
+                - name: node-exporter
+                  image: prom/node-exporter:latest
+                  ports:
+                    - containerPort: 9100
+
+    # 2. Security Hardening Requirement: Resource Quotas
+    - name: Apply Resource Quotas (Prevent Resource Abuse)
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: ResourceQuota
+          metadata:
+            name: security-quota
+            namespace: default
+          spec:
+            hard:
+              requests.cpu: "1"
+              requests.memory: 1Gi
+              limits.cpu: "2"
+              limits.memory: 2Gi
