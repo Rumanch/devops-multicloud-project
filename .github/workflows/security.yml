@@ -12,22 +12,24 @@ jobs:
       - name: Unit Test (Verify App Content)
         run: grep -q "DevOps Project" app/index.html
 
-      # 2. Requirement: Security Scanning (Trivy)
+      # 2. Build Image Locally (So Trivy can scan it)
+      - name: Build Docker Image
+        run: docker build -t rumanch/devops-app:latest ./app
+
+      # 3. Requirement: Security Scanning (Trivy)
       - name: Run Trivy Scan
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: 'rumanch/devops-app:latest'
           format: 'table'
-          exit-code: '0' 
+          exit-code: '0' # Reports findings but allows pipeline to continue
 
-      # 3. Requirement: Artifact Management (Push to Docker Hub)
+      # 4. Requirement: Artifact Management (Login and Push)
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and Push Secure Image
-        run: |
-          docker build -t rumanch/devops-app:latest ./app
-          docker push rumanch/devops-app:latest
+      - name: Push Secure Image
+        run: docker push rumanch/devops-app:latest
