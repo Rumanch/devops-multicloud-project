@@ -8,23 +8,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 1. Requirement: Automated Unit Testing
-      - name: Unit Test (Verify App Content)
+      # 1. Automated Unit Test
+      - name: Unit Test
         run: grep -q "DevOps Project" app/index.html
 
-      # 2. Build Image Locally (So Trivy can scan it)
+      # 2. Build Image Locally (REQUIRED before scanning)
       - name: Build Docker Image
         run: docker build -t rumanch/devops-app:latest ./app
 
-      # 3. Requirement: Security Scanning (Trivy)
+      # 3. Security Scan (Trivy)
       - name: Run Trivy Scan
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: 'rumanch/devops-app:latest'
           format: 'table'
-          exit-code: '0' # Reports findings but allows pipeline to continue
+          exit-code: '0' 
 
-      # 4. Requirement: Artifact Management (Login and Push)
+      # 4. Login and Push to Artifact Registry
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
